@@ -36,6 +36,16 @@ Jwt__Audience=RedSocialClientes
 Jwt__ExpireMinutes=60
 Jwt__Key=<secreto privado>
 Logging__FilePath=D:\home\LogFiles\Application\redsocial-.json
+
+Para enviar los logs del App Service a Grafana Cloud se agregarán en Variables de entorno, sin guardar el token en Git:
+
+```text
+GrafanaCloud__LokiUrl=https://<tu-endpoint-de-loki>
+GrafanaCloud__LokiUser=<tu-user-o-id-de-loki>
+GrafanaCloud__LokiToken=<token-con-permiso-de-escritura>
+```
+
+Si las tres variables están presentes, Serilog conserva el archivo local y además envía los eventos a Loki usando etiquetas `app=redsocial-api`, `env=Production` y `source=azure-app-service`. Si no están configuradas, la API continúa funcionando únicamente con el archivo y la consola.
 ```
 
 La conexión SQL se agregó como cadena de conexión de App Service con el nombre `DefaultConnection`. La contraseña no forma parte de esta documentación.
@@ -81,6 +91,8 @@ Las fotos de perfil y de las publicaciones no se guardan en la base de datos. La
 - En App Service: `%HOME%/data/redsocial-media/uploads`.
 
 La carpeta de producción queda fuera del paquete publicado y usa el almacenamiento compartido de App Service. Por eso permanece disponible después de reiniciar la aplicación y puede ser leída por las instancias escaladas. No se debe usar `D:\local` para archivos permanentes.
+
+Cuando se cambia o elimina la foto de perfil, la API borra también el archivo anterior. La limpieza revisa tanto el almacenamiento compartido como el `wwwroot` legado para evitar dejar archivos huérfanos de la primera versión.
 
 La selección se hace automáticamente por entorno:
 

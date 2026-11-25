@@ -10,6 +10,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
+using Serilog.Sinks.Grafana.Loki;
 using RedSocial.API.Middleware;
 using RedSocial.API.Hubs;
 using RedSocial.API.Services;
@@ -27,7 +28,7 @@ if (!Path.IsPathRooted(logFilePath))
     logFilePath = Path.Combine(builder.Environment.ContentRootPath, logFilePath);
 Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
 
-Log.Logger = new LoggerConfiguration()
+var loggerConfiguration = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "RedSocial.API")
     .MinimumLevel.Information()
@@ -38,8 +39,36 @@ Log.Logger = new LoggerConfiguration()
         logFilePath,
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 14,
-        shared: true)
-    .CreateLogger();
+        shared: true);
+
+var grafanaLokiUrl = builder.Configuration["GrafanaCloud:LokiUrl"];
+var grafanaLokiUser = builder.Configuration["GrafanaCloud:LokiUser"];
+var grafanaLokiToken = builder.Configuration["GrafanaCloud:LokiToken"];
+var grafanaLokiConfigured = !string.IsNullOrWhiteSpace(grafanaLokiUrl)
+    && !string.IsNullOrWhiteSpace(grafanaLokiUser)
+    && !string.IsNullOrWhiteSpace(grafanaLokiToken);
+
+if (grafanaLokiConfigured)
+{
+    loggerConfiguration = loggerConfiguration.WriteTo.GrafanaLoki(
+        grafanaLokiUrl!,
+        labels:
+        [
+            new LokiLabel { Key = "app", Value = "redsocial-api" },
+            new LokiLabel { Key = "job", Value = "redsocial-api" },
+            new LokiLabel { Key = "env", Value = builder.Environment.EnvironmentName },
+            new LokiLabel { Key = "source", Value = "azure-app-service" }
+        ],
+        credentials: new LokiCredentials
+        {
+            Login = grafanaLokiUser!,
+            Password = grafanaLokiToken!
+        },
+        propertiesAsStructuredMetadata: ["EventType", "UserId", "SourceIp"],
+        restrictedToMinimumLevel: LogEventLevel.Information);
+}
+
+Log.Logger = loggerConfiguration.CreateLogger();
 
 builder.Host.UseSerilog();
 

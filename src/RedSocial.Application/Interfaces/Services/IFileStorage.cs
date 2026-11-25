@@ -7,4 +7,6 @@ public interface IFileStorage
         string category,
         string extension,
         CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(string? url, CancellationToken cancellationToken = default);
 }

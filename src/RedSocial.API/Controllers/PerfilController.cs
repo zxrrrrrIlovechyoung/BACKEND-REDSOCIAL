@@ -147,12 +147,26 @@ public class PerfilController : ControllerBase
         var idClaim = User.FindFirst("sub")?.Value;
         if (!int.TryParse(idClaim, out var idUsuario)) return Unauthorized();
 
+        var perfilActual = await _context.PerfilesUsuario
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.IdUsuario == idUsuario, ct);
+        var fotoAnteriorUrl = perfilActual?.FotoPerfilUrl;
+
         var archivoUrl = await GuardarFotoPerfilAsync(request.Foto, ct);
         if (archivoUrl.Error is not null)
             return BadRequest(new { exito = false, mensaje = archivoUrl.Error });
 
         var resultado = await _perfilService.ActualizarFotoPerfilAsync(idUsuario, archivoUrl.Url!, ct);
-        return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        if (!resultado.Exito)
+        {
+            await _fileStorage.DeleteAsync(archivoUrl.Url, ct);
+            return BadRequest(resultado);
+        }
+
+        if (!string.Equals(fotoAnteriorUrl, archivoUrl.Url, StringComparison.OrdinalIgnoreCase))
+            await _fileStorage.DeleteAsync(fotoAnteriorUrl, ct);
+
+        return Ok(resultado);
     }
 
     [HttpDelete("foto")]
@@ -164,9 +178,11 @@ public class PerfilController : ControllerBase
         var perfil = await _context.PerfilesUsuario.FirstOrDefaultAsync(p => p.IdUsuario == idUsuario, ct);
         if (perfil is null) return NotFound(new { exito = false, mensaje = "No se encontró el perfil." });
 
+        var fotoAnteriorUrl = perfil.FotoPerfilUrl;
         perfil.FotoPerfilUrl = null;
         perfil.FechaActualizacion = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
+        await _fileStorage.DeleteAsync(fotoAnteriorUrl, ct);
 
         var resultado = await _perfilService.ObtenerMiPerfilAsync(idUsuario, ct);
         return resultado.Exito ? Ok(resultado) : BadRequest(resultado);

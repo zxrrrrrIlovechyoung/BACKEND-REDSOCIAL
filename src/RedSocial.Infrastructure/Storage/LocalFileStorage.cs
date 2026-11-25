@@ -41,6 +41,42 @@ public sealed class LocalFileStorage : IFileStorage
         return $"/uploads/{safeCategory}/{fileName}";
     }
 
+    public Task DeleteAsync(string? url, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var relativePath = GetRelativeUploadPath(url);
+        if (relativePath is null)
+            return Task.CompletedTask;
+
+        // Se revisa también el wwwroot legado para limpiar archivos creados
+        // antes de cambiar al almacenamiento compartido de App Service.
+        var roots = new[]
+        {
+            ResolveRoot(),
+            Path.Combine(_environment.ContentRootPath, "wwwroot")
+        }.Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in roots)
+        {
+            var uploadsRoot = Path.GetFullPath(Path.Combine(root, "uploads"));
+            var fullPath = Path.GetFullPath(Path.Combine(uploadsRoot, relativePath));
+            var rootWithSeparator = uploadsRoot.EndsWith(Path.DirectorySeparatorChar)
+                ? uploadsRoot
+                : uploadsRoot + Path.DirectorySeparatorChar;
+
+            // Solo se permite borrar dentro de uploads; nunca se usa directamente
+            // una ruta recibida del cliente.
+            if (fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     public string ResolveRoot()
     {
         if (!string.IsNullOrWhiteSpace(_settings.LocalRoot))
@@ -66,5 +102,29 @@ public sealed class LocalFileStorage : IFileStorage
     {
         var normalized = extension.Trim().ToLowerInvariant();
         return normalized.StartsWith('.') ? normalized : $".{normalized}";
+    }
+
+    private static string? GetRelativeUploadPath(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        var value = url.Trim();
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absoluteUri))
+            value = absoluteUri.AbsolutePath;
+
+        var queryStart = value.IndexOfAny(['?', '#']);
+        if (queryStart >= 0)
+            value = value[..queryStart];
+
+        const string prefix = "/uploads/";
+        if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var relative = Uri.UnescapeDataString(value[prefix.Length..])
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+
+        return string.IsNullOrWhiteSpace(relative) ? null : relative;
     }
 }
