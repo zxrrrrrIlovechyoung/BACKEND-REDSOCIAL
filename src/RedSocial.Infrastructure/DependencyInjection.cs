@@ -8,6 +8,7 @@ using RedSocial.Infrastructure.Email;
 using RedSocial.Infrastructure.Persistence;
 using RedSocial.Infrastructure.Repositories;
 using RedSocial.Infrastructure.Security;
+using RedSocial.Infrastructure.Storage;
 
 namespace RedSocial.Infrastructure;
 
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.Configure<SecuritySettings>(configuration.GetSection(SecuritySettings.Seccion));
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.Seccion));
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.Seccion));
+        services.Configure<StorageSettings>(configuration.GetSection(StorageSettings.Seccion));
 
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IPerfilUsuarioRepository, PerfilUsuarioRepository>();
@@ -32,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
         services.AddSingleton<IJwtGenerator, JwtGenerator>();
+        services.AddScoped<LocalFileStorage>();
+        services.AddScoped<IFileStorage>(provider => provider.GetRequiredService<LocalFileStorage>());
 
         return services;
     }

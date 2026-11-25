@@ -14,13 +14,13 @@ public class PerfilController : ControllerBase
 {
     private static readonly string[] ExtensionesImagen = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
     private readonly IPerfilService _perfilService;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IFileStorage _fileStorage;
     private readonly AppDbContext _context;
 
-    public PerfilController(IPerfilService perfilService, IWebHostEnvironment environment, AppDbContext context)
+    public PerfilController(IPerfilService perfilService, IFileStorage fileStorage, AppDbContext context)
     {
         _perfilService = perfilService;
-        _environment = environment;
+        _fileStorage = fileStorage;
         _context = context;
     }
 
@@ -202,17 +202,9 @@ public class PerfilController : ControllerBase
         if (!foto.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             return (null, "El archivo seleccionado no parece ser una imagen.");
 
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        var carpeta = Path.Combine(webRoot, "uploads", "perfiles");
-        Directory.CreateDirectory(carpeta);
-
-        var nombreSeguro = $"{Guid.NewGuid():N}{extension}";
-        var ruta = Path.Combine(carpeta, nombreSeguro);
-
-        await using var stream = System.IO.File.Create(ruta);
-        await foto.CopyToAsync(stream, ct);
-
-        return ($"/uploads/perfiles/{nombreSeguro}", null);
+        await using var stream = foto.OpenReadStream();
+        var url = await _fileStorage.SaveAsync(stream, "perfiles", extension, ct);
+        return (url, null);
     }
 }
 

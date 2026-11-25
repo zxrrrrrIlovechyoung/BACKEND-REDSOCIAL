@@ -16,13 +16,13 @@ public class MomentosController : ControllerBase
 {
     private static readonly string[] ExtensionesImagen = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
     private readonly IMomentoService _momentoService;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IFileStorage _fileStorage;
     private readonly AppDbContext _context;
 
-    public MomentosController(IMomentoService momentoService, IWebHostEnvironment environment, AppDbContext context)
+    public MomentosController(IMomentoService momentoService, IFileStorage fileStorage, AppDbContext context)
     {
         _momentoService = momentoService;
-        _environment = environment;
+        _fileStorage = fileStorage;
         _context = context;
     }
 
@@ -308,9 +308,6 @@ public class MomentosController : ControllerBase
         if (lista.Length > 10)
             return ([], "Puedes subir hasta 10 imágenes por publicación.");
 
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        var carpeta = Path.Combine(webRoot, "uploads", "momentos");
-        Directory.CreateDirectory(carpeta);
         var urls = new List<string>(lista.Length);
 
         foreach (var archivo in lista)
@@ -319,11 +316,8 @@ public class MomentosController : ControllerBase
             if (!ExtensionesImagen.Contains(extension) || !archivo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return ([], "Todas las imágenes deben ser JPG, PNG, WEBP o HEIC.");
 
-            var nombreSeguro = $"{Guid.NewGuid():N}{extension}";
-            var ruta = Path.Combine(carpeta, nombreSeguro);
-            await using var stream = System.IO.File.Create(ruta);
-            await archivo.CopyToAsync(stream, ct);
-            urls.Add($"/uploads/momentos/{nombreSeguro}");
+            await using var stream = archivo.OpenReadStream();
+            urls.Add(await _fileStorage.SaveAsync(stream, "momentos", extension, ct));
         }
 
         return (urls, null);

@@ -5,7 +5,7 @@
 - Backend desplegado en Azure App Service.
 - Base de datos desplegada en Azure SQL Database.
 - Código de producción: rama `main`.
-- Frontend pendiente de desplegar en su versión base.
+- Frontend desplegado en su versión base.
 
 ## Backend
 
@@ -72,6 +72,36 @@ dotnet publish src/RedSocial.API/RedSocial.API.csproj -c Release -o "${{env.DOTN
 ```
 
 Esto evita publicar la solución completa en una misma carpeta y garantiza que se incluya la dependencia `Microsoft.IdentityModel.Protocols.dll` requerida por JWT.
+
+### Archivos subidos y persistencia
+
+Las fotos de perfil y de las publicaciones no se guardan en la base de datos. La API guarda en local y producción usando el mismo contrato de URL (`/uploads/...`):
+
+- En desarrollo: `wwwroot/uploads`.
+- En App Service: `%HOME%/data/redsocial-media/uploads`.
+
+La carpeta de producción queda fuera del paquete publicado y usa el almacenamiento compartido de App Service. Por eso permanece disponible después de reiniciar la aplicación y puede ser leída por las instancias escaladas. No se debe usar `D:\local` para archivos permanentes.
+
+La selección se hace automáticamente por entorno:
+
+```json
+"Storage": {
+  "Provider": "Local",
+  "LocalRoot": ""
+}
+```
+
+En local, `LocalRoot` vacío resuelve a `wwwroot`; en producción, a la carpeta `HOME/data/redsocial-media`. No requiere migración SQL porque la base de datos ya almacena las rutas relativas de los archivos.
+
+Para verificarlo en Azure:
+
+1. Publicar este cambio en `main`.
+2. Subir una nueva foto de perfil.
+3. Reiniciar el App Service.
+4. Confirmar que la foto siga visible.
+5. Revisar en Kudu/Advanced Tools que exista `D:\home\data\redsocial-media\uploads\perfiles`.
+
+Esta solución no agrega un servicio de pago. Si el proyecto crece, el siguiente reemplazo natural es Azure Blob Storage privado; la interfaz `IFileStorage` deja preparada esa sustitución sin modificar controladores ni la base de datos.
 
 ### Comprobación
 

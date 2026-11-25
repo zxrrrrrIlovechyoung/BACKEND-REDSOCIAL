@@ -17,6 +17,8 @@ using RedSocial.Application.Interfaces.Services;
 using RedSocial.Application;
 using RedSocial.Infrastructure;
 using RedSocial.Infrastructure.Security;
+using RedSocial.Infrastructure.Storage;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -166,6 +168,32 @@ else
 }
 
 app.UseStaticFiles();
+var localStorageRoot = builder.Configuration.GetSection(StorageSettings.Seccion).Get<StorageSettings>() ?? new StorageSettings();
+if (string.Equals(localStorageRoot.Provider, "Local", StringComparison.OrdinalIgnoreCase))
+{
+    var root = localStorageRoot.LocalRoot;
+    if (string.IsNullOrWhiteSpace(root))
+    {
+        root = app.Environment.IsDevelopment()
+            ? Path.Combine(app.Environment.ContentRootPath, "wwwroot")
+            : Path.Combine(
+                Environment.GetEnvironmentVariable("HOME") ?? app.Environment.ContentRootPath,
+                "data",
+                "redsocial-media");
+    }
+    var uploadsRoot = Path.Combine(root, "uploads");
+    Directory.CreateDirectory(uploadsRoot);
+
+    var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+    if (!string.Equals(root, webRoot, StringComparison.OrdinalIgnoreCase))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(uploadsRoot),
+            RequestPath = "/uploads"
+        });
+    }
+}
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
