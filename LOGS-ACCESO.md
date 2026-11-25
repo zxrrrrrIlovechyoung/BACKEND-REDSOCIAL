@@ -7,6 +7,7 @@ Se agregaron registros de inicio de sesión y reactivación de cuenta con usuari
 1. Haz una copia de tu proyecto y de tu base de datos.
 2. Descomprime FRONT-REDSOCIAL-con-logs.zip y BACK-REDSOCIAL-con-logs.zip. Contienen el código de tus proyectos con los cambios; no incluyen node_modules, .vs, bin, obj ni credenciales locales. Conserva tus archivos .env y appsettings.Local.json.
 3. En SQL Server Management Studio ejecuta **database/02_LogsAcceso.sql**, incluido en el backend. Si usas una base con otro nombre, ajusta `USE RedSocialDB` antes de ejecutar. Si partes de una base nueva, ejecuta primero 01_CrearBaseDatos.sql. El script 02 puede repetirse y conserva los registros.
+4. Ejecuta **database/03_Auditoria.sql** para agregar las columnas de auditoría requeridas por el modelo actual. El script es repetible y no elimina registros.
 4. Desde la carpeta del backend:
 
 ```powershell

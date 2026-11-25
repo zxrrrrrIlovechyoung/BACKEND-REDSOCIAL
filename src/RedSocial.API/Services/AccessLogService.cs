@@ -6,13 +6,29 @@ using RedSocial.Infrastructure.Persistence;
 
 namespace RedSocial.API.Services;
 
-public class AccessLogService(AppDbContext context)
+public class AccessLogService(AppDbContext context, ILogger<AccessLogService> logger)
 {
     public async Task RegistrarAsync(string identificador, string evento,
         Resultado<AuthResponseDto> resultado, IPAddress? ip, CancellationToken ct)
     {
         context.LogsAcceso.Add(Crear(identificador, evento, resultado, ip));
         await context.SaveChangesAsync(ct);
+
+        if (evento is "login" or "reactivacion")
+        {
+            var userId = resultado.Datos?.IdUsuario;
+            var sourceIp = ip?.IsIPv4MappedToIPv6 == true ? ip.MapToIPv4().ToString() : ip?.ToString();
+
+            logger.Log(
+                resultado.Exito ? LogLevel.Information : LogLevel.Warning,
+                "Authentication attempt {EventType} {Identifier} {Success} {SourceIp} {UserId} {Reason}",
+                evento,
+                identificador.Trim(),
+                resultado.Exito,
+                sourceIp ?? "unknown",
+                userId,
+                resultado.Mensaje);
+        }
     }
 
     public static LogAcceso Crear(string identificador, string evento,

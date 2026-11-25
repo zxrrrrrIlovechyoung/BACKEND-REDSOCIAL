@@ -7,6 +7,9 @@ using System.Net;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Json;
 using RedSocial.API.Middleware;
 using RedSocial.API.Hubs;
 using RedSocial.API.Services;
@@ -16,6 +19,27 @@ using RedSocial.Infrastructure;
 using RedSocial.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var logFilePath = builder.Configuration["Logging:FilePath"] ?? "logs/redsocial-.json";
+if (!Path.IsPathRooted(logFilePath))
+    logFilePath = Path.Combine(builder.Environment.ContentRootPath, logFilePath);
+Directory.CreateDirectory(Path.GetDirectoryName(logFilePath)!);
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "RedSocial.API")
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .WriteTo.Console(new JsonFormatter())
+    .WriteTo.File(
+        new JsonFormatter(),
+        logFilePath,
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 14,
+        shared: true)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Secretos locales de desarrollo (cadena de conexión, clave JWT) en appsettings.Local.json.
 // Ese archivo está en .gitignore: cada integrante crea el suyo a partir de appsettings.Local.example.json.
@@ -78,7 +102,14 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // ── CORS para el frontend React ──────────────────────────────────────────
-var origenes = builder.Configuration.GetSection("Cors:Origenes").Get<string[]>() ?? [];
+var origenesConfigurados = builder.Configuration.GetSection("Cors:Origenes").Get<string[]>() ?? [];
+var origenes = origenesConfigurados
+    .Concat([
+        "http://localhost:5175",
+        "http://127.0.0.1:5175"
+    ])
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", p => p.WithOrigins(origenes).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
@@ -142,4 +173,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
 
-app.Run();
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}
