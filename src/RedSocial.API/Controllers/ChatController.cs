@@ -88,6 +88,25 @@ public class ChatController : ControllerBase
         return Ok(new { exito = true, datos = conversaciones });
     }
 
+    [HttpGet("no-leidos")]
+    public async Task<IActionResult> NoLeidos(CancellationToken ct)
+    {
+        var idUsuario = ObtenerIdUsuario();
+        if (idUsuario is null) return Unauthorized();
+
+        var total = await (
+            from mensaje in _context.MensajesChat.AsNoTracking()
+            join conversacion in _context.Conversaciones.AsNoTracking()
+                on mensaje.IdConversacion equals conversacion.IdConversacion
+            where !mensaje.Leido
+                && mensaje.IdEmisor != idUsuario
+                && (conversacion.IdUsuarioA == idUsuario || conversacion.IdUsuarioB == idUsuario)
+            select mensaje.IdMensaje
+        ).CountAsync(ct);
+
+        return Ok(new { exito = true, datos = new { total } });
+    }
+
     [HttpPost("conversaciones/{idOtro:int}")]
     public async Task<IActionResult> CrearOAbrir(int idOtro, CancellationToken ct)
     {
@@ -138,6 +157,29 @@ public class ChatController : ControllerBase
             .ToListAsync(ct);
 
         return Ok(new { exito = true, datos = mensajes });
+    }
+
+    [HttpPost("conversaciones/{hash}/leer")]
+    public async Task<IActionResult> MarcarLeidos(string hash, CancellationToken ct)
+    {
+        var idUsuario = ObtenerIdUsuario();
+        if (idUsuario is null) return Unauthorized();
+
+        var conversacion = await _context.Conversaciones
+            .FirstOrDefaultAsync(c => c.HashConversacion == hash && (c.IdUsuarioA == idUsuario || c.IdUsuarioB == idUsuario), ct);
+        if (conversacion is null) return NotFound(new { exito = false, mensaje = "Conversación no encontrada." });
+
+        var mensajes = await _context.MensajesChat
+            .Where(m => m.IdConversacion == conversacion.IdConversacion && !m.Leido && m.IdEmisor != idUsuario)
+            .ToListAsync(ct);
+
+        if (mensajes.Count > 0)
+        {
+            mensajes.ForEach(mensaje => mensaje.Leido = true);
+            await _context.SaveChangesAsync(ct);
+        }
+
+        return Ok(new { exito = true, datos = new { marcados = mensajes.Count } });
     }
 
     private int? ObtenerIdUsuario()
