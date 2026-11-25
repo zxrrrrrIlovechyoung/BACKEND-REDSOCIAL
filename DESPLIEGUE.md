@@ -1,0 +1,111 @@
+# Despliegue de RedSocial
+
+## Estado actual
+
+- Backend desplegado en Azure App Service.
+- Base de datos desplegada en Azure SQL Database.
+- Código de producción: rama `main`.
+- Frontend pendiente de desplegar en su versión base.
+
+## Backend
+
+### Azure App Service
+
+- Aplicación: `redsocial-api-raul-2026`
+- Región: Canada East.
+- Sistema operativo: Windows.
+- Pila seleccionada: `.NET 10 (LTS)`.
+- Proyecto real: `net8.0`.
+- Compatibilidad configurada:
+
+```text
+DOTNET_ROLL_FORWARD=Major
+```
+
+El runtime .NET 10 se usa porque .NET 8 ya no aparece en el formulario actual de Azure. El código del proyecto continúa apuntando a `net8.0`.
+
+### Variables de entorno
+
+Se configuraron en App Service, sin guardar secretos en Git:
+
+```text
+ASPNETCORE_ENVIRONMENT=Production
+DOTNET_ROLL_FORWARD=Major
+Jwt__Issuer=RedSocialAPI
+Jwt__Audience=RedSocialClientes
+Jwt__ExpireMinutes=60
+Jwt__Key=<secreto privado>
+Logging__FilePath=D:\home\LogFiles\Application\redsocial-.json
+```
+
+La conexión SQL se agregó como cadena de conexión de App Service con el nombre `DefaultConnection`. La contraseña no forma parte de esta documentación.
+
+### Base de datos
+
+- Servidor: `redsocial-sql-raul-2026.database.windows.net`
+- Base: `RedSocialDB`
+
+Las migraciones se ejecutaron en orden:
+
+```text
+migraciones/001 ... migraciones/019
+BACKEND/database/02_LogsAcceso.sql
+BACKEND/database/03_Auditoria.sql
+```
+
+Antes de desplegar el backend se confirmó que las tablas existían en Azure SQL.
+
+### Integración continua
+
+El despliegue se realiza desde GitHub Actions:
+
+- Repositorio: `zxrrrrrIlovechyoung/BACKEND-REDSOCIAL`
+- Rama: `main`
+- Autenticación: OIDC mediante identidad administrada.
+- Workflow: `.github/workflows/main_redsocial-api-raul-2026.yml`
+
+El workflow publica únicamente el proyecto API:
+
+```yaml
+dotnet build src/RedSocial.API/RedSocial.API.csproj --configuration Release
+dotnet publish src/RedSocial.API/RedSocial.API.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+```
+
+Esto evita publicar la solución completa en una misma carpeta y garantiza que se incluya la dependencia `Microsoft.IdentityModel.Protocols.dll` requerida por JWT.
+
+### Comprobación
+
+Endpoint público de prueba:
+
+```text
+https://redsocial-api-raul-2026-c5ezb9f4g5djeeg9.canadaeast-01.azurewebsites.net/api/momentos/publico
+```
+
+Respuesta confirmada:
+
+```json
+{"exito":true,"mensaje":"","datos":[]}
+```
+
+El arreglo vacío indica que el endpoint funciona y que todavía no existen publicaciones.
+
+## Frontend base
+
+Se desplegará desde el repositorio `FRONTEND-REDSOCIAL`, rama `main`, usando Azure Static Web Apps en el plan gratuito.
+
+La variable de compilación requerida será:
+
+```text
+VITE_API_URL=https://redsocial-api-raul-2026-c5ezb9f4g5djeeg9.canadaeast-01.azurewebsites.net/api
+```
+
+Después de obtener la URL pública del frontend, se agregará como origen permitido en el backend mediante `Cors__Origenes__0`.
+
+Los ajustes de diseño y adaptación móvil se realizarán en una etapa posterior.
+
+## Reglas de seguridad
+
+- No subir contraseñas, claves JWT ni cadenas de conexión a Git.
+- No copiar valores secretos en capturas o documentación pública.
+- Mantener la base de datos con acceso de red limitado.
+- Revisar los logs de App Service y Grafana durante las pruebas.
