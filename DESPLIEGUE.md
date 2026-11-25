@@ -91,7 +91,14 @@ El arreglo vacío indica que el endpoint funciona y que todavía no existen publ
 
 ## Frontend base
 
-Se desplegará desde el repositorio `FRONTEND-REDSOCIAL`, rama `main`, usando Azure Static Web Apps en el plan gratuito.
+Frontend base desplegado desde el repositorio `FRONTEND-REDSOCIAL`, rama `main`, usando Azure Static Web Apps en el plan gratuito.
+
+- URL: `https://happy-pebble-0ee8a850f.8.azurestaticapps.net`
+- Preset: React.
+- Ubicación de la aplicación: `/`.
+- Ubicación de salida: `dist`.
+
+El workflow de Static Web Apps compila con la URL pública del backend:
 
 La variable de compilación requerida será:
 
@@ -99,7 +106,13 @@ La variable de compilación requerida será:
 VITE_API_URL=https://redsocial-api-raul-2026-c5ezb9f4g5djeeg9.canadaeast-01.azurewebsites.net/api
 ```
 
-Después de obtener la URL pública del frontend, se agregará como origen permitido en el backend mediante `Cors__Origenes__0`.
+El backend permite el origen del frontend mediante:
+
+```text
+Cors__Origenes__0=https://happy-pebble-0ee8a850f.8.azurestaticapps.net
+```
+
+Para soportar recargas directas de rutas de React Router se agregó `public/staticwebapp.config.json`, que redirige las rutas internas a `index.html`.
 
 Los ajustes de diseño y adaptación móvil se realizarán en una etapa posterior.
 
