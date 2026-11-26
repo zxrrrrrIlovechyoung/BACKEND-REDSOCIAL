@@ -299,8 +299,10 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseCors("Frontend");
 app.UseRateLimiter();
-app.UseMiddleware<CookieCsrfMiddleware>();
 app.UseAuthentication();
+// La autenticación debe ejecutarse antes de validar antiforgery: el token
+// CSRF se vincula al usuario autenticado en la cookie.
+app.UseMiddleware<CookieCsrfMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
