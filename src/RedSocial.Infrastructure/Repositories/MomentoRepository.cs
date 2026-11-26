@@ -35,6 +35,13 @@ public class MomentoRepository : IMomentoRepository
                 Avatar = perfil != null && perfil.FotoPerfilUrl != null
                     ? perfil.FotoPerfilUrl
                     : usuario.NombreUsuario.Substring(0, Math.Min(usuario.NombreUsuario.Length, 2)).ToUpper(),
+                EsVerificado = (usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 Texto = momento.Texto,
                 TipoAdjunto = momento.TipoAdjunto,
                 ArchivoUrl = momento.ArchivoUrl,
@@ -42,6 +49,45 @@ public class MomentoRepository : IMomentoRepository
                 TotalMeGusta = momento.TotalMeGusta,
                 TotalComentarios = momento.TotalComentarios,
                 LeGusta = _context.MeGustaMomentos.Any(mg => mg.IdMomento == momento.IdMomento && mg.IdUsuario == idUsuarioActual),
+                FechaCreacion = momento.FechaCreacion
+            }).Take(take).ToListAsync(ct);
+    }
+
+    public Task<List<MomentoFeedDto>> ObtenerFavoritosAsync(int idUsuarioActual, int cantidad = 50, CancellationToken ct = default)
+    {
+        var take = Math.Clamp(cantidad, 1, 100);
+
+        return (
+            from meGusta in _context.MeGustaMomentos.AsNoTracking()
+            join momento in _context.Momentos.AsNoTracking() on meGusta.IdMomento equals momento.IdMomento
+            join usuario in _context.Usuarios.AsNoTracking() on momento.IdUsuario equals usuario.IdUsuario
+            join perfil in _context.PerfilesUsuario.AsNoTracking() on usuario.IdUsuario equals perfil.IdUsuario into perfiles
+            from perfil in perfiles.DefaultIfEmpty()
+            where meGusta.IdUsuario == idUsuarioActual && momento.Activo && usuario.Activo
+            orderby meGusta.FechaCreacion descending
+            select new MomentoFeedDto
+            {
+                IdMomento = momento.IdMomento,
+                IdUsuario = usuario.IdUsuario,
+                Autor = perfil != null ? perfil.NombrePerfil : usuario.NombrePerfil,
+                Usuario = "@" + usuario.NombreUsuario,
+                Avatar = perfil != null && perfil.FotoPerfilUrl != null
+                    ? perfil.FotoPerfilUrl
+                    : usuario.NombreUsuario.Substring(0, Math.Min(usuario.NombreUsuario.Length, 2)).ToUpper(),
+                EsVerificado = (usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))),
+                Texto = momento.Texto,
+                TipoAdjunto = momento.TipoAdjunto,
+                ArchivoUrl = momento.ArchivoUrl,
+                LinkUrl = momento.LinkUrl,
+                TotalMeGusta = momento.TotalMeGusta,
+                TotalComentarios = momento.TotalComentarios,
+                LeGusta = true,
                 FechaCreacion = momento.FechaCreacion
             }).Take(take).ToListAsync(ct);
     }
@@ -66,6 +112,13 @@ public class MomentoRepository : IMomentoRepository
                 Avatar = perfil != null && perfil.FotoPerfilUrl != null
                     ? perfil.FotoPerfilUrl
                     : usuario.NombreUsuario.Substring(0, Math.Min(usuario.NombreUsuario.Length, 2)).ToUpper(),
+                EsVerificado = (usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 Texto = momento.Texto,
                 TipoAdjunto = momento.TipoAdjunto,
                 ArchivoUrl = momento.ArchivoUrl,
@@ -110,6 +163,13 @@ public class MomentoRepository : IMomentoRepository
                 Avatar = perfil != null && perfil.FotoPerfilUrl != null
                     ? perfil.FotoPerfilUrl
                     : usuario.NombreUsuario.Substring(0, Math.Min(usuario.NombreUsuario.Length, 2)).ToUpper(),
+                EsVerificado = (usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 Texto = momento.Texto,
                 TipoAdjunto = momento.TipoAdjunto,
                 ArchivoUrl = momento.ArchivoUrl,

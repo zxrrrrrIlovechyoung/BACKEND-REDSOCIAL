@@ -73,6 +73,12 @@ public class MomentoService : IMomentoService
         return Resultado<List<MomentoFeedDto>>.Ok(feed);
     }
 
+    public async Task<Resultado<List<MomentoFeedDto>>> ObtenerFavoritosAsync(int idUsuarioActual, CancellationToken ct = default)
+    {
+        var favoritos = await _momentos.ObtenerFavoritosAsync(idUsuarioActual, 50, ct);
+        return Resultado<List<MomentoFeedDto>>.Ok(favoritos);
+    }
+
     public async Task<Resultado<List<MomentoFeedDto>>> ObtenerFeedPublicoAsync(CancellationToken ct = default)
     {
         var feed = await _momentos.ObtenerFeedAsync(0, 30, ct);

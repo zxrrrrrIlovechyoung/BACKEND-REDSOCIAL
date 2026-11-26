@@ -54,6 +54,16 @@ public class MomentosController : ControllerBase
         return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
     }
 
+    [HttpGet("favoritos")]
+    public async Task<IActionResult> Favoritos(CancellationToken ct)
+    {
+        var idClaim = User.FindFirst("sub")?.Value;
+        if (!int.TryParse(idClaim, out var idUsuario)) return Unauthorized();
+
+        var resultado = await _momentoService.ObtenerFavoritosAsync(idUsuario, ct);
+        return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+    }
+
     [HttpGet("usuario/{idUsuario:int}")]
     public async Task<IActionResult> MomentosDeUsuario(int idUsuario, [FromQuery] int? cursor, [FromQuery] int cantidad = 30, CancellationToken ct = default)
     {

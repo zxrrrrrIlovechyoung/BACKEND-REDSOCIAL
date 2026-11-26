@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup>
+    <!-- Exclude temporary validation outputs from the SDK default globs. -->
+    <Compile Remove="**\obj-check\**" />
+    <EmbeddedResource Remove="**\obj-check\**" />
+    <None Remove="**\obj-check\**" />
+  </ItemGroup>
+</Project>

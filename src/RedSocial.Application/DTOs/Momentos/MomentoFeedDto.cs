@@ -7,6 +7,8 @@ public class MomentoFeedDto
     public string Autor { get; set; } = string.Empty;
     public string Usuario { get; set; } = string.Empty;
     public string Avatar { get; set; } = string.Empty;
+    public bool EsVerificado { get; set; }
+    public bool EsModerador { get; set; }
     public string Texto { get; set; } = string.Empty;
     public string? TipoAdjunto { get; set; }
     public string? ArchivoUrl { get; set; }

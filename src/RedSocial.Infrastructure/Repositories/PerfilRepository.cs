@@ -20,6 +20,13 @@ public class PerfilRepository : IPerfilRepository
                 IdUsuario = u.IdUsuario,
                 NombreUsuario = u.NombreUsuario,
                 NombrePerfil = u.Perfil != null ? u.Perfil.NombrePerfil : u.NombrePerfil,
+                EsVerificado = (u.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (u.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((u.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (u.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 SobreMi = u.Perfil != null ? u.Perfil.SobreMi : null,
                 FotoPerfilUrl = u.Perfil != null ? u.Perfil.FotoPerfilUrl : null,
                 Seguidores = _context.Seguidores.Count(s => s.IdSeguido == u.IdUsuario),
@@ -47,6 +54,13 @@ public class PerfilRepository : IPerfilRepository
                 IdUsuario = u.IdUsuario,
                 NombreUsuario = u.NombreUsuario,
                 NombrePerfil = u.Perfil != null ? u.Perfil.NombrePerfil : u.NombrePerfil,
+                EsVerificado = (u.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (u.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((u.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (u.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (u.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == u.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 SobreMi = u.Perfil != null ? u.Perfil.SobreMi : null,
                 FotoPerfilUrl = u.Perfil != null ? u.Perfil.FotoPerfilUrl : null,
                 Seguidores = _context.Seguidores.Count(s => s.IdSeguido == u.IdUsuario),

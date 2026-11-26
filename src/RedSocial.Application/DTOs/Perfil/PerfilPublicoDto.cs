@@ -5,6 +5,8 @@ public class PerfilPublicoDto
     public int IdUsuario { get; set; }
     public string NombreUsuario { get; set; } = string.Empty;
     public string NombrePerfil { get; set; } = string.Empty;
+    public bool EsVerificado { get; set; }
+    public bool EsModerador { get; set; }
     public string? SobreMi { get; set; }
     public string? FotoPerfilUrl { get; set; }
     public int Seguidores { get; set; }

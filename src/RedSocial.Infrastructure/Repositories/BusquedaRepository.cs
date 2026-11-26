@@ -71,6 +71,13 @@ public class BusquedaRepository : IBusquedaRepository
                 Avatar = perfil != null
                     ? perfil.NombrePerfil.Substring(0, Math.Min(perfil.NombrePerfil.Length, 2)).ToUpper()
                     : usuario.NombreUsuario.Substring(0, Math.Min(usuario.NombreUsuario.Length, 2)).ToUpper(),
+                EsVerificado = (usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                    && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                    && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador")),
+                EsModerador = (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))
+                    && !((usuario.Rol == "usuario" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "usuario"))
+                        && (usuario.Rol == "admin" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "admin"))
+                        && (usuario.Rol == "moderador" || _context.UsuarioRoles.Any(ur => ur.IdUsuario == usuario.IdUsuario && ur.Rol!.Nombre == "moderador"))),
                 Texto = momento.Texto,
                 TipoAdjunto = momento.TipoAdjunto,
                 ArchivoUrl = momento.ArchivoUrl,
