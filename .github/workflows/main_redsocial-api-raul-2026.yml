@@ -18,6 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: zxrrrrrIlovechyoung/FRONTEND-REDSOCIAL
+          ref: main
+          path: frontend-source
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
@@ -25,6 +38,17 @@ jobs:
 
       - name: Build with dotnet
         run: dotnet build src/RedSocial.API/RedSocial.API.csproj --configuration Release
+
+      - name: Build frontend in same origin mode
+        shell: pwsh
+        env:
+          VITE_API_URL: /api
+        run: |
+          npm ci --prefix frontend-source
+          npm run build --prefix frontend-source
+          Get-ChildItem frontend-source/dist | Where-Object { $_.Name -ne 'staticwebapp.config.json' } | ForEach-Object {
+            Copy-Item $_.FullName -Destination src/RedSocial.API/wwwroot -Recurse -Force
+          }
 
       - name: dotnet publish
         run: dotnet publish src/RedSocial.API/RedSocial.API.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"

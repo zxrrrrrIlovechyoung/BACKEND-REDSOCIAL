@@ -253,6 +253,34 @@ if (string.Equals(localStorageRoot.Provider, "Local", StringComparison.OrdinalIg
         });
     }
 }
+
+// Sirve la SPA desde el mismo origen que la API. Esto evita cookies de terceros
+// cuando la sesión usa AuthCookie y permite recargar rutas de React Router.
+app.Use(async (context, next) =>
+{
+    var esNavegacion = HttpMethods.IsGet(context.Request.Method)
+        || HttpMethods.IsHead(context.Request.Method);
+    var esApi = context.Request.Path.StartsWithSegments("/api");
+    var esHub = context.Request.Path.StartsWithSegments("/hubs");
+    var esArchivo = Path.HasExtension(context.Request.Path);
+
+    if (esNavegacion && !esApi && !esHub && !esArchivo)
+    {
+        var webRoot = app.Environment.WebRootPath
+            ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+        var indexPath = Path.Combine(webRoot, "index.html");
+
+        if (File.Exists(indexPath))
+        {
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(indexPath);
+            return;
+        }
+    }
+
+    await next();
+});
+
 app.UseRouting();
 app.UseCors("Frontend");
 app.UseRateLimiter();

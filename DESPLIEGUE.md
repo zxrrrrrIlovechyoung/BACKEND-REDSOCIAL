@@ -154,6 +154,17 @@ La variable de compilación requerida será:
 VITE_API_URL=https://redsocial-api-raul-2026-c5ezb9f4g5djeeg9.canadaeast-01.azurewebsites.net/api
 ```
 
+### Frontend integrado con la API
+
+Para producción, el workflow del backend compila el repositorio del frontend
+con `VITE_API_URL=/api` y copia el resultado al `wwwroot` de App Service. La
+aplicación se debe abrir desde:
+
+`https://redsocial-api-raul-2026-c5ezb9f4g5djeeg9.canadaeast-01.azurewebsites.net/`
+
+De esta forma la SPA y la API comparten origen, y la cookie `moment_auth` no
+depende de cookies de terceros. El Static Web App anterior queda como respaldo.
+
 El backend permite el origen del frontend mediante:
 
 ```text
