@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
 using Microsoft.AspNetCore.RateLimiting;
@@ -22,6 +23,20 @@ using RedSocial.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Antiforgery y otros componentes de ASP.NET Core necesitan las mismas claves
+// después de un reinicio o al cambiar de instancia en App Service. En Azure se
+// guardan bajo HOME, que es almacenamiento persistente; en local se usa TEMP.
+var dataProtectionPath = builder.Environment.IsDevelopment()
+    ? Path.Combine(Path.GetTempPath(), "redsocial-dataprotection")
+    : Path.Combine(
+        Environment.GetEnvironmentVariable("HOME") ?? builder.Environment.ContentRootPath,
+        "data",
+        "redsocial-dataprotection");
+Directory.CreateDirectory(dataProtectionPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("RedSocial.API");
 
 var logFilePath = builder.Configuration["Logging:FilePath"] ?? "logs/redsocial-.json";
 if (!Path.IsPathRooted(logFilePath))
