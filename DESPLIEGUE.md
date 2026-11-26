@@ -36,6 +36,13 @@ Jwt__Audience=RedSocialClientes
 Jwt__ExpireMinutes=60
 Jwt__Key=<secreto privado>
 Logging__FilePath=D:\home\LogFiles\Application\redsocial-.json
+AuthCookie__Enabled=false
+AuthCookie__Name=moment_auth
+AuthCookie__Path=/
+AuthCookie__Secure=true
+AuthCookie__SameSite=None
+AuthCookie__Domain=
+```
 
 Para enviar los logs del App Service a Grafana Cloud se agregarán en Variables de entorno, sin guardar el token en Git:
 
@@ -46,7 +53,6 @@ GrafanaCloud__LokiToken=<token-con-permiso-de-escritura>
 ```
 
 Si las tres variables están presentes, Serilog conserva el archivo local y además envía los eventos a Loki usando etiquetas `app=redsocial-api`, `env=Production` y `source=azure-app-service`. Si no están configuradas, la API continúa funcionando únicamente con el archivo y la consola.
-```
 
 La conexión SQL se agregó como cadena de conexión de App Service con el nombre `DefaultConnection`. La contraseña no forma parte de esta documentación.
 
@@ -153,6 +159,26 @@ El backend permite el origen del frontend mediante:
 ```text
 Cors__Origenes__0=https://happy-pebble-0ee8a850f.8.azurestaticapps.net
 ```
+
+### Cookies de sesión y protección CSRF
+
+La aplicación local emite una cookie `HttpOnly` y el frontend restaura la sesión mediante `GET /api/auth/sesion`. Cuando `AuthCookie__Enabled=true`, el backend ya no devuelve el JWT en la respuesta de login ni lo guarda el frontend en `sessionStorage`.
+
+Las peticiones mutables autenticadas por cookie (`POST`, `PUT`, `PATCH` y `DELETE`) requieren el header `X-CSRF-TOKEN`. El frontend obtiene el token desde `GET /api/auth/csrf` y lo mantiene solo en memoria. El backend valida el token mediante antiforgery antes de ejecutar la acción.
+
+La conexión de SignalR valida el origen permitido y conserva la autorización del hub; las acciones de chat también validan que el usuario siga al destinatario.
+
+Después de validar localmente login, recarga, logout, acciones protegidas y chat, cambiar en App Service:
+
+```text
+AuthCookie__Enabled=true
+AuthCookie__Secure=true
+AuthCookie__SameSite=None
+AuthCookie__Domain=
+Cors__Origenes__0=https://happy-pebble-0ee8a850f.8.azurestaticapps.net
+```
+
+`AuthCookie__Domain` debe permanecer vacío para que la cookie sea host-only del API. No se debe usar `Domain=.azurewebsites.net` ni un comodín CORS. El backend ya no agrega orígenes `localhost` fuera de `Development`.
 
 Para soportar recargas directas de rutas de React Router se agregó `public/staticwebapp.config.json`, que redirige las rutas internas a `index.html`.
 

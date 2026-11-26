@@ -19,5 +19,6 @@ public interface IAuthService
     Task<Resultado<object>> EliminarCuentaAsync(int idUsuario, CambiarEstadoCuentaRequestDto dto, CancellationToken ct = default);
     Task<Resultado<AuthResponseDto>> ReactivarCuentaAsync(LoginRequestDto dto, CancellationToken ct = default);
     Task<Resultado<AuthResponseDto>> LoginAsync(LoginRequestDto dto, CancellationToken ct = default);
+    Task<Resultado<AuthResponseDto>> ObtenerSesionAsync(int idUsuario, CancellationToken ct = default);
     Task<Resultado<RegistroResponseDto>> RegistrarAsync(RegistroRequestDto dto, CancellationToken ct = default);
 }

@@ -89,6 +89,23 @@ if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
     throw new InvalidOperationException(
         $"Jwt:Key debe tener al menos 32 caracteres (entorno: '{builder.Environment.EnvironmentName}'). Configúrala en appsettings.Local.json.");
 
+var authCookie = builder.Configuration.GetSection(AuthCookieSettings.Section).Get<AuthCookieSettings>()
+    ?? new AuthCookieSettings();
+builder.Services.Configure<AuthCookieSettings>(builder.Configuration.GetSection(AuthCookieSettings.Section));
+builder.Services.AddSingleton(authCookie);
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.Name = "moment_csrf";
+    options.Cookie.HttpOnly = false;
+    options.Cookie.IsEssential = true;
+    options.Cookie.Path = "/";
+    options.Cookie.SecurePolicy = authCookie.Secure
+        ? CookieSecurePolicy.Always
+        : CookieSecurePolicy.None;
+    options.Cookie.SameSite = authCookie.GetSameSiteMode();
+});
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -96,9 +113,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/chat"))
+                if (authCookie.Enabled)
+                    context.Token = context.Request.Cookies[authCookie.Name];
+
+                var accessToken = context.Request.Query["access_token"];
+                if (string.IsNullOrEmpty(context.Token)
+                    && !string.IsNullOrEmpty(accessToken)
+                    && path.StartsWithSegments("/hubs/chat"))
                     context.Token = accessToken;
 
                 return Task.CompletedTask;
@@ -134,15 +156,19 @@ builder.Services.AddRateLimiter(options =>
 
 // ── CORS para el frontend React ──────────────────────────────────────────
 var origenesConfigurados = builder.Configuration.GetSection("Cors:Origenes").Get<string[]>() ?? [];
-var origenes = origenesConfigurados
-    .Concat([
+var origenesLocales = builder.Environment.IsDevelopment()
+    ? new[]
+    {
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
         "http://localhost:5175",
         "http://127.0.0.1:5175"
-    ])
+    }
+    : Array.Empty<string>();
+var origenes = origenesConfigurados
+    .Concat(origenesLocales)
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .ToArray();
 builder.Services.AddCors(options =>
@@ -227,8 +253,10 @@ if (string.Equals(localStorageRoot.Provider, "Local", StringComparison.OrdinalIg
         });
     }
 }
+app.UseRouting();
 app.UseCors("Frontend");
 app.UseRateLimiter();
+app.UseMiddleware<CookieCsrfMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

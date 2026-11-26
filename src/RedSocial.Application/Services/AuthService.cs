@@ -379,6 +379,15 @@ public class AuthService : IAuthService
         return Resultado<AuthResponseDto>.Ok(CrearRespuesta(usuario), "Bienvenido de vuelta a Moment.");
     }
 
+    public async Task<Resultado<AuthResponseDto>> ObtenerSesionAsync(int idUsuario, CancellationToken ct = default)
+    {
+        var usuario = await _usuarios.ObtenerPorIdAsync(idUsuario, ct);
+        if (usuario is null || !usuario.Activo)
+            return Resultado<AuthResponseDto>.Error("La sesión ya no es válida.");
+
+        return Resultado<AuthResponseDto>.Ok(CrearRespuesta(usuario, incluirToken: false));
+    }
+
     public async Task<Resultado<RegistroResponseDto>> RegistrarAsync(RegistroRequestDto dto, CancellationToken ct = default)
     {
         var nombre = dto.NombreUsuario.Trim();
@@ -428,9 +437,11 @@ public class AuthService : IAuthService
         }, "Cuenta creada correctamente. Ya puedes iniciar sesión.");
     }
 
-    private AuthResponseDto CrearRespuesta(Usuario usuario)
+    private AuthResponseDto CrearRespuesta(Usuario usuario, bool incluirToken = true)
     {
-        var (token, expira) = _jwt.Generar(usuario);
+        var (token, expira) = incluirToken
+            ? _jwt.Generar(usuario)
+            : (string.Empty, DateTime.UtcNow);
         var roles = usuario.Roles
             .Select(ur => ur.Rol?.Nombre)
             .Where(r => !string.IsNullOrWhiteSpace(r))

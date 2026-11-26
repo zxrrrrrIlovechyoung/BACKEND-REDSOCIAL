@@ -30,8 +30,8 @@ public class ChatController : ControllerBase
         if (idUsuario is null) return Unauthorized();
 
         var ids = await _context.Seguidores.AsNoTracking()
-            .Where(s => s.IdSeguidor == idUsuario || s.IdSeguido == idUsuario)
-            .Select(s => s.IdSeguidor == idUsuario ? s.IdSeguido : s.IdSeguidor)
+            .Where(s => s.IdSeguidor == idUsuario)
+            .Select(s => s.IdSeguido)
             .Distinct()
             .ToListAsync(ct);
 
@@ -114,10 +114,14 @@ public class ChatController : ControllerBase
         if (idUsuario is null) return Unauthorized();
         if (idUsuario == idOtro) return BadRequest(new { exito = false, mensaje = "No puedes abrir chat contigo mismo." });
 
-        var conectado = await _context.Seguidores.AnyAsync(s =>
-            (s.IdSeguidor == idUsuario && s.IdSeguido == idOtro) ||
-            (s.IdSeguidor == idOtro && s.IdSeguido == idUsuario), ct);
-        if (!conectado) return BadRequest(new { exito = false, mensaje = "Solo puedes escribir a seguidores o seguidos." });
+        var sigueAlDestinatario = await _context.Seguidores.AnyAsync(s =>
+            s.IdSeguidor == idUsuario && s.IdSeguido == idOtro, ct);
+        if (!sigueAlDestinatario)
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                exito = false,
+                mensaje = "Solo puedes escribirle a personas que sigues."
+            });
 
         var (a, b) = ChatSecurity.OrdenarUsuarios(idUsuario.Value, idOtro);
         var hash = ChatSecurity.CrearHash(a, b, _configuration["Jwt:Key"] ?? string.Empty);

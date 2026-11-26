@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using RedSocial.Application.DTOs.Auth;
 using RedSocial.API.Services;
 using RedSocial.Application.Interfaces.Services;
@@ -15,11 +17,19 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
 
     private readonly AccessLogService _accessLog;
+    private readonly AuthCookieSettings _authCookie;
+    private readonly IAntiforgery _antiforgery;
 
-    public AuthController(IAuthService authService, AccessLogService accessLog)
+    public AuthController(
+        IAuthService authService,
+        AccessLogService accessLog,
+        IOptions<AuthCookieSettings> authCookie,
+        IAntiforgery antiforgery)
     {
         _authService = authService;
         _accessLog = accessLog;
+        _authCookie = authCookie.Value;
+        _antiforgery = antiforgery;
     }
 
     [HttpPost("login")]
@@ -29,6 +39,11 @@ public class AuthController : ControllerBase
         var resultado = await _authService.LoginAsync(dto, ct);
         await _accessLog.RegistrarAsync(dto.UsuarioOEmail, "login", resultado,
             HttpContext.Connection.RemoteIpAddress, ct);
+        if (resultado.Exito)
+        {
+            EstablecerCookie(resultado.Datos);
+            OcultarTokenSiCookieActiva(resultado.Datos);
+        }
         return resultado.Exito ? Ok(resultado) : Unauthorized(resultado);
     }
 
@@ -39,7 +54,35 @@ public class AuthController : ControllerBase
         var resultado = await _authService.ReactivarCuentaAsync(dto, ct);
         await _accessLog.RegistrarAsync(dto.UsuarioOEmail, "reactivacion", resultado,
             HttpContext.Connection.RemoteIpAddress, ct);
+        if (resultado.Exito)
+        {
+            EstablecerCookie(resultado.Datos);
+            OcultarTokenSiCookieActiva(resultado.Datos);
+        }
         return resultado.Exito ? Ok(resultado) : Unauthorized(resultado);
+    }
+
+    [HttpGet("csrf")]
+    [AllowAnonymous]
+    public IActionResult Csrf()
+    {
+        var tokens = _antiforgery.GetAndStoreTokens(HttpContext);
+        return Ok(new { exito = true, datos = new { token = tokens.RequestToken } });
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(_authCookie.Name, new CookieOptions
+        {
+            Path = _authCookie.Path,
+            Domain = string.IsNullOrWhiteSpace(_authCookie.Domain) ? null : _authCookie.Domain,
+            Secure = _authCookie.Secure,
+            SameSite = _authCookie.GetSameSiteMode(),
+            HttpOnly = true
+        });
+        return NoContent();
     }
 
     [HttpPost("registro/solicitar-codigo")]
@@ -174,4 +217,38 @@ public class AuthController : ControllerBase
         Email = User.FindFirst("email")?.Value,
         Rol = User.FindFirst("rol")?.Value
     });
+
+    [HttpGet("sesion")]
+    [Authorize]
+    public async Task<IActionResult> Sesion(CancellationToken ct)
+    {
+        var idClaim = User.FindFirst("sub")?.Value;
+        if (!int.TryParse(idClaim, out var idUsuario)) return Unauthorized();
+
+        var resultado = await _authService.ObtenerSesionAsync(idUsuario, ct);
+        return resultado.Exito ? Ok(resultado) : Unauthorized(resultado);
+    }
+
+    private void EstablecerCookie(AuthResponseDto? datos)
+    {
+        if (!_authCookie.Enabled || datos is null || string.IsNullOrWhiteSpace(datos.Token)) return;
+
+        Response.Cookies.Append(_authCookie.Name, datos.Token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = _authCookie.Secure,
+            SameSite = _authCookie.GetSameSiteMode(),
+            Path = _authCookie.Path,
+            Domain = string.IsNullOrWhiteSpace(_authCookie.Domain) ? null : _authCookie.Domain,
+            Expires = datos.ExpiraEn
+        });
+    }
+
+    private void OcultarTokenSiCookieActiva(AuthResponseDto? datos)
+    {
+        if (!_authCookie.Enabled || datos is null) return;
+
+        datos.Token = string.Empty;
+        datos.ExpiraEn = DateTime.MinValue;
+    }
 }

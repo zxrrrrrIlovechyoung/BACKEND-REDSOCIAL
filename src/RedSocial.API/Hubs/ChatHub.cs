@@ -12,15 +12,23 @@ public class ChatHub : Hub
 {
     private readonly AppDbContext _context;
     private readonly PresenceTracker _presence;
+    private readonly IConfiguration _configuration;
 
-    public ChatHub(AppDbContext context, PresenceTracker presence)
+    public ChatHub(AppDbContext context, PresenceTracker presence, IConfiguration configuration)
     {
         _context = context;
         _presence = presence;
+        _configuration = configuration;
     }
 
     public override async Task OnConnectedAsync()
     {
+        if (!OrigenPermitido())
+        {
+            Context.Abort();
+            return;
+        }
+
         var idUsuario = ObtenerIdUsuario();
         if (idUsuario is not null)
         {
@@ -48,9 +56,15 @@ public class ChatHub : Hub
         var idUsuario = ObtenerIdUsuario();
         if (idUsuario is null) return;
 
-        var permitido = await _context.Conversaciones.AsNoTracking()
-            .AnyAsync(c => c.HashConversacion == hash && (c.IdUsuarioA == idUsuario || c.IdUsuarioB == idUsuario));
-        if (!permitido) return;
+        var conversacion = await _context.Conversaciones.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.HashConversacion == hash
+                && (c.IdUsuarioA == idUsuario || c.IdUsuarioB == idUsuario));
+        if (conversacion is null) return;
+
+        var idDestinatario = conversacion.IdUsuarioA == idUsuario
+            ? conversacion.IdUsuarioB
+            : conversacion.IdUsuarioA;
+        if (!await PuedeEnviarAAsync(idUsuario.Value, idDestinatario)) return;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, hash);
     }
@@ -66,6 +80,11 @@ public class ChatHub : Hub
         var conversacion = await _context.Conversaciones
             .FirstOrDefaultAsync(c => c.HashConversacion == hash && (c.IdUsuarioA == idUsuario || c.IdUsuarioB == idUsuario));
         if (conversacion is null) return;
+
+        var idDestinatario = conversacion.IdUsuarioA == idUsuario
+            ? conversacion.IdUsuarioB
+            : conversacion.IdUsuarioA;
+        if (!await PuedeEnviarAAsync(idUsuario.Value, idDestinatario)) return;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, hash);
 
@@ -96,4 +115,18 @@ public class ChatHub : Hub
         var idClaim = Context.User?.FindFirst("sub")?.Value;
         return int.TryParse(idClaim, out var idUsuario) ? idUsuario : null;
     }
+
+    private bool OrigenPermitido()
+    {
+        var origen = Context.GetHttpContext()?.Request.Headers.Origin.ToString();
+        if (string.IsNullOrWhiteSpace(origen)) return true;
+
+        var origenes = _configuration.GetSection("Cors:Origenes").Get<string[]>() ?? [];
+        return origenes.Contains(origen, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private Task<bool> PuedeEnviarAAsync(int idUsuario, int idDestinatario) =>
+        _context.Seguidores.AsNoTracking().AnyAsync(
+            s => s.IdSeguidor == idUsuario && s.IdSeguido == idDestinatario,
+            Context.ConnectionAborted);
 }
